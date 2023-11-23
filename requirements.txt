@@ -1,0 +1,8 @@
+jieba
+pytorch
+funasr-onnx
+sherpa-onnx
+typer
+websockets
+numpy
+srt
