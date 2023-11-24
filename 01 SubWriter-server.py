@@ -11,25 +11,17 @@ import rich
 from rich.console import Console 
 console = Console(highlight=False)
 
-with console.status("载入模块中…", spinner="bouncingBall", spinner_style="yellow"):
-    from pathlib import Path
-    import time
-    import asyncio
-    import re
-    from datetime import timedelta
-    from dataclasses import dataclass
+from pathlib import Path
+import time
+import asyncio
+import re
+from datetime import timedelta
+from dataclasses import dataclass
 
-    import numpy as np
-    import websockets
-    import sherpa_onnx
-    from funasr_onnx import CT_Transformer
+import websockets
 
-    import jieba
-    import logging
-    jieba.setLogLevel(logging.INFO)
-    import signal
-    import sys
-console.print('[green4]模块加载完成', end='\n\n')
+import sys
+
 
 
 # ============================全局变量和检查区====================================
@@ -148,11 +140,14 @@ def recognize(data):
         progress += chunk_seconds
         print(f'\r识别进度：{progress}s', end='', flush=True)
 
+    # token 合并为文本
+    text = ' '.join(tokens).replace('@@ ', '')
+    text = re.sub('([^a-zA-Z0-9]) (?![a-zA-Z0-9])', r'\1', text)
+
     # 带有标点的文本
-    try:
-        text = punc_model(''.join(tokens))[0]  
-    except:
-        text = ''.join(tokens)
+    try: text = punc_model(text)[0]  
+    except: ...
+    
 
     
     # 发送回去
@@ -163,12 +158,26 @@ def recognize(data):
     return message 
 
 def init_recognizer(queue_in: Queue, queue_out: Queue):
+    global np
     global recognizer
     global punc_model
 
-    # 首先，重定向 ctrl-c 行为
+    with console.status("载入模块中…", spinner="bouncingBall", spinner_style="yellow"):
+        import numpy as np
+        import sherpa_onnx
+        from funasr_onnx import CT_Transformer
+    console.print('[green4]模块加载完成', end='\n\n')
+
+    # 关闭 jieba 的 debug
+    import jieba
+    import logging
+    jieba.setLogLevel(logging.INFO)
+
+    # 重定向 ctrl-c 行为
+    import signal
     signal.signal(signal.SIGINT, signal_handler)
     
+
     rich.print('[yellow]语音模型载入中', end='\r'); t1 = time.time()
     recognizer = sherpa_onnx.OfflineRecognizer.from_paraformer(
         paraformer=args.paraformer,
@@ -180,11 +189,11 @@ def init_recognizer(queue_in: Queue, queue_out: Queue):
         debug=args.debug,)
     rich.print(f'[green4]语音模型载入完成', end='\n');print('')
 
-    rich.print('[yellow]标点模型载入中', end='\r')
-    punc_model = CT_Transformer(punc_model_dir, quantize=True)
-    console.print(f'[green4]标点模型载入完成', end='\n\n')
+    # rich.print('[yellow]标点模型载入中', end='\r')
+    # punc_model = CT_Transformer(punc_model_dir, quantize=True)
+    # console.print(f'[green4]标点模型载入完成', end='\n\n')
 
-    console.print(f'加载耗时 {time.time() - t1 :.2f}s', end='\n\n')
+    console.print(f'模型加载耗时 {time.time() - t1 :.2f}s', end='\n\n')
     queue_out.put(True) # 通知主进程加载完了
 
     while True:
