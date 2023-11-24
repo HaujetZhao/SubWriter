@@ -11,16 +11,17 @@ import rich
 from rich.console import Console 
 console = Console(highlight=False)
 
-from pathlib import Path
 import time
-import asyncio
+import sys
 import re
+import asyncio
+from pathlib import Path
 from datetime import timedelta
 from dataclasses import dataclass
 
 import websockets
 
-import sys
+from util import chinese_itn, format_tools
 
 
 
@@ -144,9 +145,13 @@ def recognize(data):
     text = ' '.join(tokens).replace('@@ ', '')
     text = re.sub('([^a-zA-Z0-9]) (?![a-zA-Z0-9])', r'\1', text)
 
-    # 带有标点的文本
-    try: text = punc_model(text)[0]  
+    
+    text = format_tools.adjust_space(text)      # 调空格
+    try: text = punc_model(text)[0]             # 加标点
     except: ...
+    text = chinese_itn.chinese_to_num(text)     # 转数字
+    text = format_tools.adjust_space(text)      # 调空格
+
     
 
     
@@ -189,9 +194,9 @@ def init_recognizer(queue_in: Queue, queue_out: Queue):
         debug=args.debug,)
     rich.print(f'[green4]语音模型载入完成', end='\n');print('')
 
-    # rich.print('[yellow]标点模型载入中', end='\r')
-    # punc_model = CT_Transformer(punc_model_dir, quantize=True)
-    # console.print(f'[green4]标点模型载入完成', end='\n\n')
+    rich.print('[yellow]标点模型载入中', end='\r')
+    punc_model = CT_Transformer(punc_model_dir, quantize=True)
+    console.print(f'[green4]标点模型载入完成', end='\n\n')
 
     console.print(f'模型加载耗时 {time.time() - t1 :.2f}s', end='\n\n')
     queue_out.put(True) # 通知主进程加载完了
