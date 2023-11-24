@@ -1,11 +1,9 @@
 
+from memory_profiler import profile
 import json
 from multiprocessing import Process, Queue
 from os import path, sep, mkdir, makedirs, getcwd, chdir
-import subprocess
 import sys
-import concurrent.futures
-import psutil
 if 'BASE_DIR' not in globals():
     BASE_DIR = path.dirname(__file__); 
 if getcwd() != BASE_DIR:
@@ -49,7 +47,7 @@ punc_model_dir = Path() / 'models' /  'punc_ct'
 class args:
     paraformer = f'{paraformer_path}' 
     tokens = f'{tokens_path}'
-    num_threads = 3
+    num_threads = 6
     sample_rate = 16000
     feature_dim = 80
     decoding_method = 'greedy_search'
@@ -101,44 +99,39 @@ def splash():
     console.print(f'项目地址：[cyan underline]https://github.com/HaujetZhao/CapsWriter-Offline', end='\n\n')
 
 
-
+@profile
 def recognize(data):
-    frames_per_chunk = int(args.sample_rate * 30)  # 以多少秒为一段
-    streams = []
-    segments_raw = []
-    samples_processed = 0
-    index = 0
+    chunk_seconds = 30 # 以多少秒为一段
+    frames_per_chunk = int(args.sample_rate * chunk_seconds)  
 
+    index = 0
+    timestamps = []
+    tokens = []
+    progress = 0  # 记录已经识别了多少秒
     while index < len(data):
 
         # 每帧数据 2Byte
         chunk = data[index : index + frames_per_chunk * 2]
+        if not chunk: break
         index += frames_per_chunk * 2
         
-        # 读取音频片段
+        # 转换音频片段
         samples = np.frombuffer(chunk, dtype=np.int16)
         samples = samples.astype(np.float32) / 32768
         
-        # 划分片段时间
-        segment = Segment(
-            start = samples_processed / args.sample_rate,
-            duration = frames_per_chunk / args.sample_rate,
-        )
-        segments_raw.append(segment)
-        samples_processed += frames_per_chunk
-
+        # 识别
         stream = recognizer.create_stream()
         stream.accept_waveform(args.sample_rate, samples)
-        streams.append(stream)
-            
-    # 统一识别
-    recognizer.decode_streams(streams)
+        recognizer.decode_stream(stream); 
 
-    
-    timestamps = [t + seg.start for seg, stream in zip(segments_raw, streams) 
-                                    for t in stream.result.timestamps]
-    tokens = [token for stream in streams 
-                        for token in stream.result.tokens]
+        # 收集结果
+        timestamps += [t + progress for t in stream.result.timestamps]
+        tokens += [token for token in stream.result.tokens]
+
+        # 更新进度
+        progress += chunk_seconds
+        print(f'\r识别进度：{progress}s', end='', flush=True)
+
     # 带有标点的文本
     # text = ''.join(tokens)
     text = punc_model(''.join(tokens))[0]  
@@ -150,6 +143,7 @@ def recognize(data):
     
     return message 
 
+@profile
 def init_recognizer(queue_in: Queue, queue_out: Queue):
     global recognizer
     global punc_model
@@ -179,7 +173,6 @@ def init_recognizer(queue_in: Queue, queue_out: Queue):
         message = recognize(data)   # 执行识别
         queue_out.put(message)      # 返回结果
 
-
 async def ws_serve(websocket, path):
     global loop
     global message
@@ -189,13 +182,17 @@ async def ws_serve(websocket, path):
 
     try:
         async for data in websocket:
-            print(f'收到音频，时长 {len(data) / args.sample_rate / 2}s，开始识别')
+            duration_audio = len(data) / args.sample_rate / 2
+            print(f'收到音频，时长 {duration_audio:.1f}s，开始识别'); t1 = time.time()
 
             # 阻塞型任务，在另一进程处理
             queue_in.put(data)
             message = await asyncio.to_thread(queue_out.get)
+            duration_recognize = time.time()-t1
 
-            print(f'识别完成，时间戳、分词结果已返回，合并文本：{message["text"]}')
+            print(f'时间戳、分词结果已返回，合并文本：\n    {message["text"]}')
+            print(f'识别耗时：{duration_recognize:.1f}s')
+            print(f'RTF：{duration_recognize / duration_audio:.3f}')
             await websocket.send(json.dumps(message))
 
     except websockets.ConnectionClosed:
