@@ -4,6 +4,12 @@ import json
 import os
 import sys
 import platform
+import signal
+import sys
+
+def signal_handler(sig, frame):
+    print("收到中断信号")
+signal.signal(signal.SIGINT, signal_handler)
 
 import typer
 if platform.system() == 'Darwin' and os.getuid() != 0:
@@ -71,7 +77,7 @@ async def main(files: list[Path]):
         data = process.stdout.read()
 
         await websocket.send(data)
-        print(f'data has sent'); t1 = time.time()
+        print(f'data has sent'); t1 = time.time(); del data
         message = await websocket.recv()
         message = json.loads(message)
         text_merge = message['text']
@@ -95,11 +101,11 @@ async def main(files: list[Path]):
 
 
 def init(files: list[Path]):
-    try:
-        asyncio.run(main(files))
-    except KeyboardInterrupt:
-        console.print(f'再见！')
-        sys.exit()
+    # try:
+    asyncio.run(main(files))
+    # except KeyboardInterrupt:
+    #     console.print(f'再见！')
+    #     sys.exit()
 
 
 if __name__ == '__main__':
