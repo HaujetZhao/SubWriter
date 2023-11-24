@@ -103,7 +103,7 @@ def splash():
 
 
 def recognize(data):
-    frames_per_chunk = int(args.sample_rate * 60)  # 以 60 秒为一段
+    frames_per_chunk = int(args.sample_rate * 30)  # 以多少秒为一段
     streams = []
     segments_raw = []
     samples_processed = 0
