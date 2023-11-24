@@ -4,21 +4,11 @@ import json
 import os
 import sys
 import platform
-import signal
-import sys
 
-def signal_handler(sig, frame):
-    print("收到中断信号")
-signal.signal(signal.SIGINT, signal_handler)
-
-import typer
-if platform.system() == 'Darwin' and os.getuid() != 0:
-    print('在 MacOS 上需要以管理员启动客户端才能监听键盘活动，请 sudo 启动')
-    input('按回车退出'); sys.exit()
-
-from os import path, sep, makedirs, chmod
 if 'BASE_DIR' not in globals():
+    from os import path
     BASE_DIR = path.dirname(__file__); 
+
 import rich.status
 from rich.console import Console 
 from rich.markdown import Markdown
@@ -37,6 +27,7 @@ with console.status("载入模块中…", spinner="bouncingBall", spinner_style=
     import asyncio
     import subprocess
 
+    import typer
     import websockets
 
     from util import srt_from_txt
@@ -55,7 +46,8 @@ port = '6008'               # Server 端口
 
 
 async def main(files: list[Path]):
-    websocket = await websockets.connect(f"ws://{addr}:{port}", max_size=None)
+    websocket = await websockets.connect(f"ws://{addr}:{port}", max_size=None, 
+                                         close_timeout=0.1)
 
     for file in files:
         print(f'\n处理文件：{file}')
@@ -75,9 +67,10 @@ async def main(files: list[Path]):
             ]
         process = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         data = process.stdout.read()
+        audio_duration = len(data)/2/16000
 
         await websocket.send(data)
-        print(f'data has sent'); t1 = time.time(); del data
+        print(f'音频长度：{audio_duration:.1f}s'); t1 = time.time(); del data
         message = await websocket.recv()
         message = json.loads(message)
         text_merge = message['text']
@@ -92,7 +85,8 @@ async def main(files: list[Path]):
         with open(json_filename, "w", encoding="utf-8") as f:
             json.dump({'timestamps': timestamps, 'tokens': tokens}, f, ensure_ascii=False)
         srt_from_txt.one_task(txt_filename)
-        print(f'处理完成，耗时 {time.time()-t1:.2f}s')
+        procss_duration = time.time()-t1
+        print(f'处理耗时：{procss_duration:.2f}s\nRTF：{procss_duration/audio_duration:.2f}')
     
 
 
