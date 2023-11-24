@@ -5,3 +5,15 @@
 之所以分成服务端、客户端，就是因为载入模型非常慢，要近一分钟。
 
 本来昨天就已经写好了，转录短视频非常快，转录了一个 2 小时的音频，才发现了一个致命问题，转录的过程是进程阻塞的，然后就会导致主进程服务端和客户端的网络通信受阻，keep alive ping timeout，花了好久才定位到问题，才意识到是要把识别任务放到一个子进程中，所以今天才弄好。转入两个小时的音频，花了380秒，rtf 0.06，不过没有做分批省内存处理，转录的时候，内存占用达到了8GB，暂时懒得弄了，总归是能用了，比 whisper 快了不少。
+
+下载标点模型：
+
+```
+git clone https://www.modelscope.cn/damo/punc_ct-transformer_cn-en-common-vocab471067-large-onnx.git models/punc_ct
+```
+
+下载语音识别模型：
+
+```
+git clone https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-2023-09-14 models/paraformer
+```
