@@ -1,5 +1,4 @@
 
-from memory_profiler import profile
 import json
 from multiprocessing import Process, Queue
 from os import path, sep, mkdir, makedirs, getcwd, chdir
@@ -99,10 +98,11 @@ def splash():
     console.print(f'项目地址：[cyan underline]https://github.com/HaujetZhao/CapsWriter-Offline', end='\n\n')
 
 
-@profile
 def recognize(data):
-    chunk_seconds = 30 # 以多少秒为一段
-    frames_per_chunk = int(args.sample_rate * chunk_seconds)  
+    sample_rate = args.sample_rate
+    chunk_seconds = 30      # 以多少秒为一段
+    overlap_seconds = 2     # 两段之间重叠多少秒
+    frames_per_chunk = int(sample_rate * chunk_seconds)  
 
     index = 0
     timestamps = []
@@ -111,7 +111,9 @@ def recognize(data):
     while index < len(data):
 
         # 每帧数据 2Byte
-        chunk = data[index : index + frames_per_chunk * 2]
+        start = index
+        end = index + (frames_per_chunk * 2) + (overlap_seconds * sample_rate * 2)
+        chunk = data[start : end]
         if not chunk: break
         index += frames_per_chunk * 2
         
@@ -124,17 +126,34 @@ def recognize(data):
         stream.accept_waveform(args.sample_rate, samples)
         recognizer.decode_stream(stream); 
 
+        # 粗去重
+        for i, timestamp in enumerate(stream.result.timestamps):
+            if timestamp > overlap_seconds / 2: 
+                m = i; break 
+        for i, timestamp in enumerate(stream.result.timestamps):
+            if timestamp > chunk_seconds: n = i
+            if timestamp > chunk_seconds + overlap_seconds / 2: break 
+        if start == 0: m = 0
+        if index >= len(data): n = len(stream.result.timestamps)
+
+        # 细去重
+        if tokens and tokens[-2:] == stream.result.tokens[m:n][:2]: m += 2
+        elif tokens and tokens[-1:] == stream.result.tokens[m:n][:1]: m += 1
+
         # 收集结果
-        timestamps += [t + progress for t in stream.result.timestamps]
-        tokens += [token for token in stream.result.tokens]
+        timestamps += [t + progress for t in stream.result.timestamps[m:n]]
+        tokens += [token for token in stream.result.tokens[m:n]]
 
         # 更新进度
         progress += chunk_seconds
         print(f'\r识别进度：{progress}s', end='', flush=True)
 
     # 带有标点的文本
-    # text = ''.join(tokens)
-    text = punc_model(''.join(tokens))[0]  
+    try:
+        text = punc_model(''.join(tokens))[0]  
+    except:
+        text = ''.join(tokens)
+
     
     # 发送回去
     message = {'timestamps': timestamps, 
@@ -143,7 +162,6 @@ def recognize(data):
     
     return message 
 
-@profile
 def init_recognizer(queue_in: Queue, queue_out: Queue):
     global recognizer
     global punc_model
@@ -165,6 +183,7 @@ def init_recognizer(queue_in: Queue, queue_out: Queue):
     rich.print('[yellow]标点模型载入中', end='\r')
     punc_model = CT_Transformer(punc_model_dir, quantize=True)
     console.print(f'[green4]标点模型载入完成', end='\n\n')
+
     console.print(f'加载耗时 {time.time() - t1 :.2f}s', end='\n\n')
     queue_out.put(True) # 通知主进程加载完了
 
