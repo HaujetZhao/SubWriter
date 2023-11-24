@@ -95,7 +95,7 @@ def splash():
 
         ''', style='bright_red'); input('按回车退出'); sys.exit()
     console.print(f'绑定的服务地址：[cyan underline]{addr}:{port}', end='\n\n')
-    console.print(f'项目地址：[cyan underline]https://github.com/HaujetZhao/CapsWriter-Offline', end='\n\n')
+    console.print(f'项目地址：[cyan underline]https://github.com/HaujetZhao/SubWriter', end='\n\n')
 
 
 def recognize(data):
