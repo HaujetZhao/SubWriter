@@ -124,7 +124,7 @@ def recognize(data):
             if timestamp > overlap_seconds / 2: 
                 m = i; break 
         for i, timestamp in enumerate(stream.result.timestamps):
-            if timestamp > chunk_seconds: n = i
+            n = i
             if timestamp > chunk_seconds + overlap_seconds / 2: break 
         if start == 0: m = 0
         if index >= len(data): n = len(stream.result.timestamps)
