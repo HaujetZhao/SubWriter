@@ -81,6 +81,8 @@ def get_words(json_file: Path) -> list[dict[str, str | float]]:
     # 获取带有时间戳的分词列表
     words = [{'word': token, 'start': timestamp, 'end': timestamp + 0.2} 
              for (timestamp, token) in zip(json_info['timestamps'], json_info['tokens'])]
+    for i in range(len(words) - 1):
+        words[i]['end'] = min(words[i]['end'], words[i+1]['start'])
     
     return words
 
