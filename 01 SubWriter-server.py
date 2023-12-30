@@ -120,10 +120,10 @@ def recognize(data):
         recognizer.decode_stream(stream); 
 
         # 粗去重
-        for i, timestamp in enumerate(stream.result.timestamps):
+        for i, timestamp in enumerate(stream.result.timestamps, start=1):
             if timestamp > overlap_seconds / 2: 
                 m = i; break 
-        for i, timestamp in enumerate(stream.result.timestamps):
+        for i, timestamp in enumerate(stream.result.timestamps, start=1):
             n = i
             if timestamp > chunk_seconds + overlap_seconds / 2: break 
         if start == 0: m = 0

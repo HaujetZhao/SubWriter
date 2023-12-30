@@ -47,7 +47,7 @@ port = '6008'               # Server 端口
 
 async def main(files: list[Path]):
     websocket = await websockets.connect(f"ws://{addr}:{port}", max_size=None, 
-                                         close_timeout=0.1)
+                                         close_timeout=1)
 
     for file in files:
         print(f'\n处理文件：{file}')
@@ -74,7 +74,7 @@ async def main(files: list[Path]):
         message = await websocket.recv()
         message = json.loads(message)
         text_merge = message['text']
-        text_split = re.sub('[，。]', '\n', text_merge)
+        text_split = re.sub('[，。？]', '\n', text_merge)
         timestamps = message['timestamps']
         tokens = message['tokens']
 
