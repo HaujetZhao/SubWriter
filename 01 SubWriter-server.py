@@ -93,7 +93,7 @@ def splash():
 
 def recognize(data):
     sample_rate = args.sample_rate
-    chunk_seconds = 30      # 以多少秒为一段
+    chunk_seconds = 15      # 以多少秒为一段
     overlap_seconds = 2     # 两段之间重叠多少秒
     frames_per_chunk = int(sample_rate * chunk_seconds)  
 
@@ -120,7 +120,8 @@ def recognize(data):
         recognizer.decode_stream(stream); 
 
         # 粗去重
-        for i, timestamp in enumerate(stream.result.timestamps, start=1):
+        m = n = len(stream.result.timestamps)
+        for i, timestamp in enumerate(stream.result.timestamps, start=0):
             if timestamp > overlap_seconds / 2: 
                 m = i; break 
         for i, timestamp in enumerate(stream.result.timestamps, start=1):
@@ -195,7 +196,8 @@ def init_recognizer(queue_in: Queue, queue_out: Queue):
     rich.print(f'[green4]语音模型载入完成', end='\n');print('')
 
     rich.print('[yellow]标点模型载入中', end='\r')
-    punc_model = CT_Transformer(punc_model_dir, quantize=True)
+    punc_model = None
+    # punc_model = CT_Transformer(punc_model_dir, quantize=True)
     console.print(f'[green4]标点模型载入完成', end='\n\n')
 
     console.print(f'模型加载耗时 {time.time() - t1 :.2f}s', end='\n\n')
